@@ -1,0 +1,31 @@
+﻿Using System
+Using System.Text
+Using System.Security.Cryptography
+
+DclNamespace ASNA.Helpers
+
+BegClass Farrago Access(*Public)
+
+    BegFunc GetHashedString Type(*String) Shared(*Yes) Access(*Public) 
+        DclSrParm InputString Type(*String)
+
+        DclFld Sha512       Type(SHA512CryptoServiceProvider) New()
+        DclFld Encoding     Type(AsciiEncoding) New()
+        DclFld HashedString Type(*String)
+
+        DclArray Bytes Type(*Byte) Rank(1)
+
+        // Compute hash as array of bytes.
+        Bytes = Sha512.ComputeHash(Encoding.GetBytes(InputString) )
+
+        // Get Base64 value of the hash.
+        HashedString = System.Convert.ToBase64String(Bytes)
+        
+        LeaveSr HashedString
+    EndFunc
+
+    BegFunc GetNewSalt Type(*String)  Shared(*Yes) Access(*Public) 
+        LeaveSr Guid.NewGuid().ToString()
+    EndFunc 
+
+EndClass

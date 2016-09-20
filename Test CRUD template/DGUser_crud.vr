@@ -1,0 +1,218 @@
+/* 
+| -------------------------------------------------------
+|  This class provides Create, Read, Update,
+|  and Delete operations for a keyed DataGate file. 
+|  Generated with: Templates/crud.tpl.vr
+|  Generated on: Tuesday, September 20th, 2016, 8:51:38 AM
+| ------------------------------------------------------- 
+ */
+
+BegClass DGUser_Crud Access(*Public)
+
+    DclDB pgmDB DBName("*Public/DG Net Local") 
+            
+    DclDiskFile DGUser +
+        Type(*Update) + 
+        Org(*Indexed) +
+        AddRec(*Yes) + 
+        Prefix(User_) + 
+        File("Devo/DGUser") +
+        DB(pgmDB) +
+        ImpOpen(*No)
+
+    DclMemoryFile User_MF
+        DclRecordFormat User_Concurrency
+        // Include as many fields from the record format 
+        // as needed to provide concurrency protection. 
+        DclRecordFld User_UserName  Type(*Char) Len(40)
+        DclRecordFld User_FullName  Type(*Char) Len(80)
+        DclRecordFld User_Email  Type(*Char) Len(100)
+        DclRecordFld User_Status  Type(*Zoned) Len(1,0)
+        DclRecordFld User_Password  Type(*Char) Len(255)
+        DclRecordFld User_Salt  Type(*Char) Len(255)
+
+    BegConstructor Access(*Public) 
+         DclSrParm DGDB Type(ASNA.VisualRPG.Runtime.Database) 
+ 
+         *This.pgmDB = DGDB
+         Key = *New _Key()     
+         Buffer = *New DGUser_Buffer()   
+         BufferCache = *New DGUser_Buffer()   
+    EndConstructor     
+
+    BegEnum IoStatus
+        DclEnumFld OK Value(-1)
+        DclEnumFld RecordNotFound Value(0)
+        DclEnumFld RecordAlreadyExists Value(1)
+        DclEnumFld PrecedingReadNotPerformed Value(2)
+        DclEnumFld ConcurrencyViolation Value(3)
+        DclEnumFld DomainRelatedError Value(4) 
+    EndEnum    
+
+    DclFld PrecedingReadPerformed Type(*Boolean) 
+
+    DclKList Keys
+      DclKFld Key.UserName   
+
+    DclArray BufferHashes Type(*String) Dim(2) 
+      DclConst READ_ONLY Value(0)
+      DclConst READ_FOR_UPDATE Value(1)        
+
+    BegProp BufferHash Type(*String) Access(*Public) 
+        BegGet
+            LeaveSr BufferHashes[READ_ONLY]
+        EndGet
+        BegSet
+            BufferHashes[READ_ONLY] = *PropVal 
+        EndSet
+    EndProp      
+
+    DclProp Key Type(_Key) Access(*Public) 
+        BegClass _Key  
+            DclProp UserName Type(*Char) Len(40) Access(*Public)  
+        EndClass        
+
+    DclProp Buffer Type(DGUser_Buffer) Access(*Public)
+    DclProp BufferCache Type(DGUser_Buffer) Access(*Public)
+
+    BegSr Open Access(*Public)
+        If NOT pgmDB.IsOpen
+            Connect pgmDB 
+        EndIf       
+        
+        If NOT DGUser.IsOpen
+            Open DGUser
+        Endif            
+    Endsr 
+
+    BegSr Close Access(*Public)
+        Close *All 
+    EndSr
+
+    BegFunc Create Type(IoStatus) Access(*Public)  Modifier(*Overridable)
+        PrecedingReadPerformed = *False
+
+        Chain DGUser Key(Keys) Access(*NoLock)
+        If DGUser.IsFound
+            ClearBuffer() 
+            LeaveSr IoStatus.RecordAlreadyExists
+        EndIf
+
+        AssignFromBuffer()
+        Write DGUser 
+        LeaveSr IoStatus.OK 
+    EndFunc     
+
+    BegFunc Read Type(IoStatus) Access(*Public)  Modifier(*Overridable) 
+        PrecedingReadPerformed = *False      
+        Chain DGUser Key(Keys) Access(*NoLock)
+        If NOT DGUser.IsFound
+            ClearBuffer() 
+            LeaveSr IoStatus.RecordNotFound
+        EndIf
+
+        Write User_MF
+        BufferHashes[READ_ONLY] = User_MF.DataSet.GetXml().+
+                                    GetHashCode().ToString()   
+
+        AssignToBuffer()
+        PrecedingReadPerformed = *True 
+
+        LeaveSr IoStatus.OK
+    EndFunc
+
+    BegFunc Update Type(IoStatus) Access(*Public)  Modifier(*Overridable)
+        LeaveSR *This.Update(*False)
+    EndFunc               
+
+    BegFunc Update Type(IoStatus) Access(*Public)  Modifier(*Overridable)
+        DclSrParm CheckConcurrency Type(*Boolean)
+
+        If Not PrecedingReadPerformed
+            LeaveSr IoStatus.PrecedingReadNotPerformed
+        EndIf 
+
+        Chain DGUser Key(Keys) 
+        If NOT DGUser.IsFound
+            LeaveSr IoStatus.RecordNotFound
+        EndIf
+
+        If CheckConcurrency
+            User_MF.DataSet.Clear()
+            Write User_MF
+            BufferHashes[READ_FOR_UPDATE] = User_MF.DataSet.GetXml().+
+                                              GetHashCode().ToString()   
+            If BufferHashes[READ_ONLY] <> BufferHashes[READ_FOR_UPDATE]
+                PrecedingReadPerformed = *False
+                Unlock DGUser 
+                LeaveSr IoStatus.ConcurrencyViolation
+            EndIf 
+        EndIf 
+
+        AssignFromBuffer()
+        Update DGUser
+        PrecedingReadPerformed = *False
+
+        LeaveSr IoStatus.OK 
+    EndFunc      
+
+    BegFunc Delete Type(IoStatus) Access(*Public)  Modifier(*Overridable)
+        Chain DGUser Key(Keys)
+        If NOT DGUser.IsFound
+            LeaveSr IoStatus.RecordNotFound
+        EndIf
+
+        Delete DGUser 
+        PrecedingReadPerformed = *False        
+
+        LeaveSr IoStatus.OK
+    EndFunc       
+
+    BegSr AssignFromBuffer Access(*Public) 
+        User_UserName = *This.Key.UserName
+
+        User_FullName = *This.Buffer.FullName
+        User_Email = *This.Buffer.Email
+        User_Status = *This.Buffer.Status
+        User_Password = *This.Buffer.Password
+        User_Salt = *This.Buffer.Salt
+    EndSr
+
+    BegSr AssignToBuffer Access(*Public) 
+        *This.Key.UserName = User_UserName
+
+        *This.Buffer.UserName = User_UserName
+        *This.Buffer.FullName = User_FullName
+        *This.Buffer.Email = User_Email
+        *This.Buffer.Status = User_Status
+        *This.Buffer.Password = User_Password
+        *This.Buffer.Salt = User_Salt
+
+        *This.BufferCache.UserName = User_UserName
+        *This.BufferCache.FullName = User_FullName
+        *This.BufferCache.Email = User_Email
+        *This.BufferCache.Status = User_Status
+        *This.BufferCache.Password = User_Password
+        *This.BufferCache.Salt = User_Salt
+    EndSr  
+
+    BegSr ClearBuffer Access(*Public) 
+        Clear *This.Key.UserName
+        Clear *This.Buffer.UserName
+        Clear *This.Buffer.FullName
+        Clear *This.Buffer.Email
+        Clear *This.Buffer.Status
+        Clear *This.Buffer.Password
+        Clear *This.Buffer.Salt
+    EndSr
+
+EndClass
+
+BegClass DGUser_Buffer Access(*Public) 
+    DclProp UserName   Type(*Char) Len(40) Access(*Public)
+    DclProp FullName   Type(*Char) Len(80) Access(*Public)
+    DclProp Email   Type(*Char) Len(100) Access(*Public)
+    DclProp Status   Type(*Zoned) Len(1,0) Access(*Public)
+    DclProp Password   Type(*Char) Len(255) Access(*Public)
+    DclProp Salt   Type(*Char) Len(255) Access(*Public)
+EndClass        

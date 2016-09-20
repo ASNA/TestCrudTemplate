@@ -1,0 +1,236 @@
+﻿Using System
+Using System.Text
+Using Microsoft.VisualStudio.TestTools.UnitTesting 
+
+DclNamespace Test_CRUD_template
+
+BegClass ExampleTests Access(*Public) Attributes(TestClass())
+
+    DclDB pgmDB DBName("*Public/DG Net Local") 
+
+    DclFld Status Type(DGUser_Crud.IoStatus)
+
+    BegSr ClearUser
+        Connect pgmDB 
+        pgmDB.ClearMember('Devo/DgUser')
+        Disconnect pgmDB 
+    EndSr
+
+    BegSr TestCreateNewUser Attributes(TestMethod()) Access(*Public) 
+        DclFld UserCrud Type(DGUser_Crud_Custom)  New(pgmDB)  
+        
+        ClearUser()
+
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        UserCrud.Buffer.FullName = 'Roger Pence'
+        UserCrud.Buffer.Email = 'rp@asna.com'
+        UserCrud.Buffer.Password = 'dkdlaouqwr34'
+        Status = UserCrud.Create()
+        Assert.AreEqual(Status, DGUser_Crud.IoStatus.OK)
+        UserCrud.Close()
+    EndSr
+
+    BegSr TestCreateDuplicateUser Attributes(TestMethod()) Access(*Public) 
+        DclFld UserCrud Type(DGUser_Crud_Custom)  New(pgmDB)  
+
+        ClearUser()
+
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        UserCrud.Buffer.FullName = 'Roger Pence'
+        UserCrud.Buffer.Email = 'rp@asna.com'
+        UserCrud.Buffer.Password = 'dkdlaouqwr34'
+        Status = UserCrud.Create()
+        UserCrud.Close()
+
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        UserCrud.Buffer.FullName = 'Roger Pence'
+        UserCrud.Buffer.Email = 'rp@asna.com'
+        UserCrud.Buffer.Password = 'dkdlaouqwr34'
+        Status = UserCrud.Create()
+        Assert.AreEqual(Status, DGUser_Crud.IoStatus.RecordAlreadyExists)
+        UserCrud.Close()
+    EndSr
+
+    BegSr TestDeleteUser Attributes(TestMethod()) Access(*Public) 
+        DclFld UserCrud Type(DGUser_Crud_Custom)  New(pgmDB)  
+
+        ClearUser()
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        UserCrud.Buffer.FullName = 'Roger Pence'
+        UserCrud.Buffer.Email = 'rp@asna.com'
+        UserCrud.Buffer.Password = 'dkdlaouqwr34'
+        Status = UserCrud.Create()
+        UserCrud.Close()
+
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        Status = UserCrud.Delete()
+        Assert.AreEqual(Status, DGUser_Crud.IoStatus.OK)
+        UserCrud.Close()
+    EndSr
+
+    BegSr TestConfirmPassword Attributes(TestMethod()) Access(*Public) 
+        DclFld UserCrud Type(DGUser_Crud_Custom)  New(pgmDB)  
+        DclFld CrudStatus Type(DGUser_Crud.IoStatus)
+
+        ClearUser()
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        UserCrud.Buffer.FullName = 'Roger Pence'
+        UserCrud.Buffer.Email = 'rp@asna.com'
+        UserCrud.Buffer.Password = 'dkdlaouqwr34'
+        CrudStatus = UserCrud.Create()
+        UserCrud.Close()
+
+        UserCrud.Open()
+        CrudStatus = UserCrud.ConfirmPassword('rp', 'dkdlaouqwr34')
+        UserCrud.Close()
+
+        Assert.AreEqual(CrudStatus, DGUser_Crud.IoStatus.OK) 
+    EndSr
+
+    BegSr TestConfirmFailedPassword Attributes(TestMethod()) Access(*Public) 
+        DclFld UserCrud Type(DGUser_Crud_Custom)  New(pgmDB)  
+        DclFld CrudStatus Type(DGUser_Crud.IoStatus)
+
+        ClearUser()
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        UserCrud.Buffer.FullName = 'Roger Pence'
+        UserCrud.Buffer.Email = 'rp@asna.com'
+        UserCrud.Buffer.Password = 'dkdlaouqwr34'
+        CrudStatus = UserCrud.Create()
+        UserCrud.Close()
+
+
+        UserCrud.Open()
+        CrudStatus = UserCrud.ConfirmPassword('rp', 'iqwao3242!@#')
+        UserCrud.Close()
+
+        Assert.AreEqual(CrudStatus, DGUser_Crud.IoStatus.DomainRelatedError)
+        Assert.AreEqual(UserCrud.DomainStatus, DGUser_Crud_Custom.DomainIoStatus.PasswordIsNotValid)
+    EndSr
+    
+    BegSr TestConfirmFailedPasswordWithNoAccount Attributes(TestMethod()) Access(*Public) 
+        DclFld UserCrud Type(DGUser_Crud_Custom)  New(pgmDB)  
+        DclFld CrudStatus Type(DGUser_Crud.IoStatus)
+
+        ClearUser()
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        UserCrud.Buffer.FullName = 'Roger Pence'
+        UserCrud.Buffer.Email = 'rp@asna.com'
+        UserCrud.Buffer.Password = 'dkdlaouqwr34'
+        CrudStatus = UserCrud.Create()
+        UserCrud.Close()
+
+        UserCrud.Open()
+        CrudStatus = UserCrud.ConfirmPassword('rpd', 'iqwao3242!@#')
+        UserCrud.Close()
+
+        Assert.AreEqual(CrudStatus, DGUser_Crud.IoStatus.RecordNotFound)
+        Assert.AreEqual(UserCrud.DomainStatus, DGUser_Crud_Custom.DomainIoStatus.AccountNotFound) 
+    EndSr
+    
+    BegSr TestChangePassword Attributes(TestMethod()) Access(*Public) 
+        DclFld UserCrud Type(DGUser_Crud_Custom)  New(pgmDB)  
+        DclFld CrudStatus Type(DGUser_Crud.IoStatus)
+
+        ClearUser()
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        UserCrud.Buffer.FullName = 'Roger Pence'
+        UserCrud.Buffer.Email = 'rp@asna.com'
+        UserCrud.Buffer.Password = 'dkdlaouqwr34'
+        CrudStatus = UserCrud.Create()
+        UserCrud.Close()
+
+        UserCrud.Open()
+        CrudStatus = UserCrud.ChangePassword('rp', 'dkdlaouqwr34', 'neilYoung')
+        UserCrud.Close()
+
+        UserCrud.Open()
+        CrudStatus = UserCrud.ConfirmPassword('rp', 'neilYoung')
+        UserCrud.Close()
+        Assert.AreEqual(CrudStatus, DGUser_Crud.IoStatus.OK) 
+    EndSr
+
+    BegSr TestUpdateWithAttemptedPasswordChange Attributes(TestMethod()) Access(*Public) 
+        DclFld UserCrud Type(DGUser_Crud_Custom)  New(pgmDB)  
+        DclFld CrudStatus Type(DGUser_Crud.IoStatus)
+
+        DclFld SavePassword Type(*String) 
+        DclFld SaveSalt Type(*String) 
+
+        ClearUser()
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        UserCrud.Buffer.FullName = 'Roger Pence'
+        UserCrud.Buffer.Email = 'rp@asna.com'
+        UserCrud.Buffer.Password = 'dkdlaouqwr34'
+        CrudStatus = UserCrud.Create()
+        UserCrud.Close()
+
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+        CrudStatus = UserCrud.Read() 
+
+        SavePassword = UserCrud.Buffer.Password
+        SaveSalt = UserCrud.Buffer.Salt
+
+        // Attempt to change password. The Update method returns a DomainRelatedError 
+        // sets DomainStatus to DomainIoStatus.PasswordIsNotValid if you attempt
+        // to change the password with the Update method.
+        // You must use the ChangePassword method to change the password. 
+        UserCrud.Buffer.Password = 'neilYoung'
+        UserCrud.Buffer.FullName = 'neilYoung'
+
+        CrudStatus = UserCrud.Update()
+        UserCrud.Close() 
+
+        Assert.AreEqual(CrudStatus, DGUser_Crud.IoStatus.DomainRelatedError)
+        Assert.AreEqual(UserCrud.DomainStatus, DGUser_Crud_Custom.DomainIoStatus.PasswordIsNotValid)
+    EndSr
+
+    BegSr TestUpdateAccount Attributes(TestMethod()) Access(*Public) 
+        DclFld UserCrud Type(DGUser_Crud_Custom)  New(pgmDB)  
+        DclFld CrudStatus Type(DGUser_Crud.IoStatus)
+
+        ClearUser()
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+
+        UserCrud.Buffer.FullName = 'Roger Pence'
+        UserCrud.Buffer.Email = 'rp@asna.com'
+        UserCrud.Buffer.Password = 'dkdlaouqwr34'
+        CrudStatus = UserCrud.Create()
+        UserCrud.Close()
+
+        UserCrud.Open()
+        UserCrud.Key.UserName = 'rp'
+        CrudStatus = UserCrud.Read() 
+
+        UserCrud.Buffer.Email = 'roger.pence@asna.com'
+        CrudStatus = UserCrud.Update()
+        UserCrud.Close() 
+
+        Assert.AreEqual(CrudStatus, DGUser_Crud.IoStatus.OK)
+    EndSr
+
+
+
+EndClass

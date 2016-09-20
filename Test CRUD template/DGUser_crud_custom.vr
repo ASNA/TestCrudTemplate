@@ -1,0 +1,115 @@
+﻿Using System
+Using System.Text
+Using System.Security.Cryptography
+
+DclNamespace Test_CRUD_template
+
+BegClass DGUser_crud_custom Access(*Public) Extends(DGUser_crud) 
+       
+    BegConstructor Access(*Public) Base(DGDB) 
+         DclSrParm DGDB Type(ASNA.VisualRPG.Runtime.Database) 
+    EndConstructor 
+
+    BegEnum AccountStatus Access(*Public) 
+        DclEnumFld Active Value(1)
+        DclEnumFld Inactive Value(2)
+        DclEnumFld Disabled Value(3) 
+    EndEnum
+   
+    DclProp DomainStatus Type(DomainIoStatus) Access(*Public) 
+   
+    BegEnum DomainIoStatus Access(*Public) 
+        DclEnumFld OK Value(0) 
+        DclEnumFld CrudError Value(1)
+        DclEnumFld AccountNotFound Value(2)
+        DclEnumFld PasswordIsValid Value(3)
+        DclEnumFld PasswordIsNotValid Value(4) 
+    EndEnum
+
+    BegFunc Create Type(DGUser_Crud.IoStatus) Access(*Public) Modifier(*Overrides) 
+        Buffer.Status = AccountStatus.Active
+
+        Buffer.Salt = ASNA.Helpers.Farrago.GetNewSalt()
+        Buffer.Password = ASNA.Helpers.Farrago.GetHashedString(Buffer.Password.Trim() + Buffer.Salt)
+
+        LeaveSr *Base.Create()
+    EndFunc 
+
+    BegFunc Update Type(IoStatus)  Access(*Public)  Modifier(*Overrides)
+        DclFld CrudStatus Type(DGUser_Crud.IoStatus) 
+
+        If *This.Buffer.Password <> *This.BufferCache.Password OR + 
+           *This.Buffer.Salt <> *This.BufferCache.Salt 
+
+           DomainStatus = DomainIoStatus.PasswordIsNotValid
+           CrudStatus = DGUser_Crud.IoStatus.DomainRelatedError
+           LeaveSr CrudStatus 
+        EndIf
+
+        *This.Buffer.Password = *This.BufferCache.Password
+        *This.Buffer.Salt = *THis.BufferCache.Salt 
+
+        CrudStatus = *Base.Update()
+        LeaveSr CrudStatus 
+    EndFunc 
+
+    BegFunc ConfirmPassword Type(DGUser_Crud.IoStatus) Access(*Public) 
+        DclSrParm UserName Type(*String)
+        DclSrParm Password Type(*String) 
+
+        DclFld CrudStatus Type(DGUser_Crud.IoStatus) 
+        DclFld CurrentPassword Type(*String) 
+
+        *This.Key.UserName = UserName
+        CrudStatus = *This.Read()
+        If CrudStatus = DGUser_Crud.IoStatus.RecordNotFound 
+            DomainStatus = DomainIoStatus.AccountNotFound
+            LeaveSr CrudStatus
+        EndIf
+        
+        CurrentPassword = *This.Buffer.Password
+        Password = ASNA.Helpers.Farrago.GetHashedString(Password + Buffer.Salt)
+
+        If CurrentPassword = Password
+            DomainStatus = DomainIoStatus.OK
+            LeaveSr DGUser_Crud.IoStatus.OK
+        Else
+            DomainStatus = DomainIoStatus.PasswordIsNotValid
+            LeaveSr DGUser_Crud.IoStatus.DomainRelatedError
+        EndIf
+    EndFunc 
+
+    BegFunc ChangePassword Type(DGUser_Crud.IoStatus) Access(*Public) 
+        DclSrParm UserName Type(*String)
+        DclSrParm OldPassword Type(*String)
+        DclSrParm NewPassword Type(*String)
+
+        DclFld CrudStatus Type(DGUser_Crud.IoStatus) 
+
+        If ConfirmPassword(UserName,OldPassword) <> DGUser_Crud.IoStatus.OK
+            DomainStatus = DomainIoStatus.PasswordIsNotValid
+            LeaveSr DGUser_Crud.IoStatus.DomainRelatedError
+        EndIf 
+
+        *This.Key.UserName = UserName
+        CrudStatus = *This.Read()
+        If CrudStatus <> DGUser_Crud.IoStatus.OK
+            DomainStatus = DomainIoStatus.CrudError
+            LeaveSr CrudStatus             
+        EndIF
+
+        *This.Buffer.Salt = ASNA.Helpers.Farrago.GetNewSalt()
+        *This.Buffer.Password = ASNA.Helpers.Farrago.GetHashedString(NewPassword.Trim() + Buffer.Salt)
+        *This.BufferCache.Salt = *This.Buffer.Salt 
+        *This.BufferCache.Password = *This.Buffer.Password
+        CrudStatus = *This.Update()
+        If CrudStatus <> DGUser_CRud.IoStatus.OK
+            DomainStatus = DomainIoStatus.CrudError            
+            LeaveSr CrudStatus             
+        Else 
+            DomainStatus = DomainIoStatus.OK
+            LeaveSr CrudStatus
+        EndIf 
+    EndFunc 
+
+EndClass
